@@ -1,0 +1,25 @@
+[project]
+name = "ulog"
+version = "0.1.0"
+description = "Convert PX4 ULog (.ulg) flight logs into MCAP files."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "boto3>=1.35.0",
+    "foxglove-sdk>=0.23.1",
+    "mcap>=1.3.1",
+    "orjson>=3.11.9",
+    "protobuf>=7.34.1",
+    "pyulog>=1.2.2",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
+]
+
+[tool.pytest.ini_options]
+# Flat modules live in src/ (the project isn't installed as a package), so put src/ on the
+# path for `from convert import ...`; tests live in test/.
+pythonpath = ["src"]
+testpaths = ["test"]

@@ -1,0 +1,6 @@
+[workspace]
+resolver = "3"
+members = ["ingest-batch","ingest-core"]
+
+[workspace.dependencies]
+ingest_core = {path = "./ingest-core"}

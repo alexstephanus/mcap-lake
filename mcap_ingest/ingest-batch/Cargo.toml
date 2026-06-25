@@ -1,0 +1,8 @@
+[package]
+name = "ingest-batch"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+ingest-core = { version = "0.1.0", path = "../ingest-core" }
+tokio = { version = "1.52.3", features = ["macros", "rt-multi-thread"] }

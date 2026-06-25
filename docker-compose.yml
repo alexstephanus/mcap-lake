@@ -1,0 +1,151 @@
+x-shared:
+  user: &user admin
+  pass: &pass password
+  endpoint: &endpoint http://minio:9000
+  region: &region us-east-1
+  warehouse: &warehouse s3://warehouse/
+
+services:
+  minio:
+    image: minio/minio:latest
+    container_name: mcap-lake-minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: *user
+      MINIO_ROOT_PASSWORD: *pass
+      MINIO_DOMAIN: minio
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # This service mounts the /data/raw folder (raw ulogs) into the /seed
+  # folder.  This way, if you run `docker compose down -v` you don't have
+  # to redownload your .ulg files, they live untouched in `data/raw`
+  minio-init:
+    image: minio/mc:latest
+    container_name: mcap-lake-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MC_USER: *user
+      MC_PASS: *pass
+      MC_ENDPOINT: *endpoint
+    volumes:
+      - type: bind
+        source: ./data/raw
+        target: /seed
+        read_only: true
+        bind:
+          create_host_path: false
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local $$MC_ENDPOINT $$MC_USER $$MC_PASS &&
+      mc mb --ignore-existing local/warehouse &&
+      mc mb --ignore-existing local/ulog &&
+      mc mb --ignore-existing local/mcap &&
+      mc anonymous set download local/warehouse &&
+      if [ -n \"$$(ls -A /seed 2>/dev/null)\" ]; then
+        mc mirror /seed/ local/ulog/;
+      fi &&
+      exit 0;
+      "
+
+  
+  iceberg-rest-init:
+    image: alpine:3.20
+    container_name: mcap-lake-iceberg-rest-init
+    volumes:
+      - iceberg-rest-data:/data
+    command: chown -R 1000:1000 /data
+
+  iceberg-rest:
+    image: apache/iceberg-rest-fixture:1.10.1
+    container_name: mcap-lake-iceberg-rest
+    depends_on:
+      minio-init:
+        condition: service_completed_successfully
+      iceberg-rest-init:
+        condition: service_completed_successfully
+    ports:
+      - "8181:8181"
+    environment:
+      AWS_ACCESS_KEY_ID: *user
+      AWS_SECRET_ACCESS_KEY: *pass
+      AWS_REGION: *region
+      CATALOG_WAREHOUSE: *warehouse
+      CATALOG_IO__IMPL: org.apache.iceberg.aws.s3.S3FileIO
+      CATALOG_S3_ENDPOINT: *endpoint
+      CATALOG_S3_PATH__STYLE__ACCESS: "true"
+      CATALOG_URI: jdbc:sqlite:/data/iceberg_rest.db
+      CATALOG_JDBC_USER: iceberg
+      CATALOG_JDBC_PASSWORD: iceberg
+    volumes:
+      - iceberg-rest-data:/data
+
+  # Code and venv are volume-mounted, to avoid needing
+  # to rebuild the image on code and dependency changes
+  ulog-converter:
+    build: ./ulog_conversion
+    container_name: mcap-lake-ulog-converter
+    profiles: ["batch"]
+    command: ["-s", "ulog", "-d", "mcap"]
+    depends_on:
+      minio-init:
+        condition: service_completed_successfully
+    environment:
+      AWS_ACCESS_KEY_ID: *user
+      AWS_SECRET_ACCESS_KEY: *pass
+      AWS_REGION: *region
+      AWS_ENDPOINT_URL: *endpoint
+      PYTHONUNBUFFERED: "1"
+    volumes:
+      - ./ulog_conversion:/app
+      - ulog-venv:/app/.venv
+    working_dir: /app
+
+  
+  rust-ingest:
+    build: ./mcap_ingest
+    container_name: mcap-lake-rust-ingest
+    profiles: ["batch"]
+    depends_on:
+      minio-init:
+        condition: service_completed_successfully
+      ulog-converter:
+        condition: service_completed_successfully
+      iceberg-rest:
+        condition: service_started
+    environment:
+      AWS_ACCESS_KEY_ID: *user
+      AWS_SECRET_ACCESS_KEY: *pass
+      AWS_REGION: *region
+      AWS_ENDPOINT_URL: *endpoint
+      ICEBERG_CATALOG_URI: http://iceberg-rest:8181
+      ICEBERG_WAREHOUSE: *warehouse
+      ICEBERG_NAMESPACE: mcap
+
+  # Custom docker image to run the init.sql script
+  duckdb:
+    build: ./warehouse
+    container_name: mcap-lake-duckdb
+    profiles: ["query"]
+    depends_on:
+      iceberg-rest:
+        condition: service_started
+    stdin_open: true
+    tty: true
+    volumes:
+      - ./warehouse/lake_init.sql:/lake_init.sql:ro
+
+volumes:
+  minio-data:
+  iceberg-rest-data:
+  ulog-venv:

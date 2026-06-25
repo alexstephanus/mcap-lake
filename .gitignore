@@ -1,0 +1,25 @@
+# ---- Data ----
+# Raw flight logs (inputs) and converted outputs are large/generated — keep out of git
+/data/raw/
+/data/converted/
+*.ulg
+*.mcap
+
+# ---- Python ulog conversion (uv) ----
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ---- Rust mcap ingest (cargo) ----
+target/
+**/*.rs.bk
+
+# ---- Editors / OS ----
+.DS_Store
+*.swp
+.idea/
+.vscode/
