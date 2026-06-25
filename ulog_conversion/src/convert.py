@@ -94,7 +94,6 @@ def get_topic_fields(ulog: ULog) -> dict[str, list[tuple[str, str]]]:
 
 
 def print_topic_fields(ulog: ULog) -> None:
-    """Utility for printing out all the topics for a particular file"""
     for topic, fields in get_topic_fields(ulog).items():
         print(f"{topic}")
         for name, type_str in fields:
