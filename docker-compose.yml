@@ -6,6 +6,14 @@ x-shared:
   warehouse: &warehouse s3://warehouse/
 
 services:
+  ulog-download:
+    build: ./data
+    container_name: mcap-lake-log-download
+    profiles: ["download"]
+
+    volumes:
+      - ./data/raw:/app/data/raw
+
   minio:
     image: minio/minio:latest
     container_name: mcap-lake-minio
