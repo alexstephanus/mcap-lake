@@ -60,7 +60,7 @@ test: test-ulog test-ingest
 
 # Download logs into data/raw. To respect DroneCode's servers, it will only download up to 25 logs.
 download-logs:
-    python3 data/download_logs.py -n 25 --skip-if-cached 25
+    docker compose --profile download run --build --rm ulog-download
 
 # Runs the pipeline end-to-end.  Downloads .ulgs if necessary, converts to mcap,
 # ingests mcap into iceberg, starts an interactive query session 
