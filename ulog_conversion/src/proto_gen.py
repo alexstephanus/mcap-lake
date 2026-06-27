@@ -1,6 +1,6 @@
 """Generate protobuf descriptors and per-topic encoders for PX4 ULog topics.
 
-Each topic gets a FileDescriptorProto with one message under the `px4.ulog`
+Each topic gets a FileDescriptorProto with one message under the a global
 package. We un-flatten name[k] fields into protobuf
 repeated fields (`char[N]` fields become strings)
 """
@@ -9,18 +9,46 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 import logging
 import re
+from typing import Optional
 
 from google.protobuf import descriptor_pb2, descriptor_pool, message_factory
-from foxglove.messages import Log, Timestamp
+from foxglove.messages import (
+    Color,
+    Duration,
+    LinePrimitive,
+    LinePrimitiveLineType,
+    Log,
+    Point3,
+    Pose,
+    Quaternion,
+    SceneEntity,
+    SceneUpdate,
+    Timestamp,
+    Vector3,
+)
 
 _log = logging.getLogger(__name__)
 
-# I don't _love regexes here, but this is
+# I don't _love_ regexes, but it's either this or a bunch of equally-horrifying
+# suffix-checking and string-splitting
 _ARRAY_REGEX = re.compile(r"^(?P<base>.*)\[(?P<idx>\d+)\]$")
 _NESTED_FIELD_REGEX = re.compile(r"\[\d+\]\.")
 _STRUCT_ARRAY_REGEX = re.compile(r"^(?P<base>.+?)\[(?P<idx>\d+)\]\.(?P<leaf>.+)$")
 
-_PACKAGE = "px4.ulog"
+# The Foxglove PX4 extension matches raw topic names,
+# e.g. `vehicle_local_position`.  Using a package name
+# (like 'px4.ulog') breaks that assumption and thus the extension. 
+# Since this pipeline only works on PX4 ulogs and processes them individually,
+# there's no risk of a name collision
+_PACKAGE = ""
+
+
+def _format_proto_message_name(name: str) -> str:
+    return f"{_PACKAGE}.{name}" if _PACKAGE else name
+
+
+def _format_proto_path(name: str) -> str:
+    return f"{_PACKAGE.replace('.', '/')}/{name}.proto" if _PACKAGE else f"{name}.proto"
 
 
 def is_nested_struct_field(field_name: str) -> bool:
@@ -179,7 +207,7 @@ def build_file_descriptor(topic_name: str, fields: list[tuple[str, str]]) -> des
     existing definitions.
     """
     return _file_descriptor(
-        f"{_PACKAGE.replace('.', '/')}/{topic_name}.proto",
+        _format_proto_path(topic_name),
         topic_name,
         _aggregate_fields(fields),
     )
@@ -231,19 +259,19 @@ class TopicCodec(ProtobufCodec):
         self.type_name = type_name
         self._fields = _aggregate_fields(fields)
         self.file_descriptor = _file_descriptor(
-            f"{_PACKAGE.replace('.', '/')}/{type_name}.proto",
+            _format_proto_path(type_name),
             type_name,
             self._fields,
         )
 
         pool = descriptor_pool.DescriptorPool()
         pool.Add(self.file_descriptor)
-        msg_descriptor = pool.FindMessageTypeByName(f"{_PACKAGE}.{type_name}")
+        msg_descriptor = pool.FindMessageTypeByName(_format_proto_message_name(type_name))
         self._message_class = message_factory.GetMessageClass(msg_descriptor)
 
     @property
     def schema_name(self) -> str:
-        return f"{_PACKAGE}.{self.type_name}"
+        return _format_proto_message_name(self.type_name)
 
     @property
     def schema_bytes(self) -> bytes:
@@ -283,7 +311,7 @@ class TopicCodec(ProtobufCodec):
 
 
 class ParameterChangedCodec(ProtobufCodec):
-    """Fixed-schema codec for px4.ulog.ParameterChanged events.
+    """Fixed-schema codec for ParameterChanged events.
 
     Unlike topic descriptors, this isn't derived from ULog fields: it's a
     hand-rolled schema with a `value` oneof, so it builds its own descriptor.
@@ -303,13 +331,13 @@ class ParameterChangedCodec(ProtobufCodec):
         self.file_descriptor = self._build_descriptor()
         pool = descriptor_pool.DescriptorPool()
         pool.Add(self.file_descriptor)
-        msg_descriptor = pool.FindMessageTypeByName(f"{_PACKAGE}.{self._NAME}")
+        msg_descriptor = pool.FindMessageTypeByName(_format_proto_message_name(self._NAME))
         self._message_class = message_factory.GetMessageClass(msg_descriptor)
 
     @classmethod
     def _build_descriptor(cls) -> descriptor_pb2.FileDescriptorProto:
         fd = descriptor_pb2.FileDescriptorProto()
-        fd.name = f"{_PACKAGE.replace('.', '/')}/parameter_changed.proto"
+        fd.name = _format_proto_path("parameter_changed")
         fd.package = _PACKAGE
         fd.syntax = "proto3"
 
@@ -331,7 +359,7 @@ class ParameterChangedCodec(ProtobufCodec):
 
     @property
     def schema_name(self) -> str:
-        return f"{_PACKAGE}.{self._NAME}"
+        return _format_proto_message_name(self._NAME)
 
     @property
     def schema_bytes(self) -> bytes:
@@ -378,4 +406,75 @@ class LogCodec(ProtobufCodec):
             name=payload.get("name", ""),
             file=payload.get("file", ""),
             line=payload.get("line", 0),
+        ).encode()
+
+
+def ned_to_enu(x: float, y: float, z: float) -> Optional[Point3]:
+    """PX4 uses North-East-Down internally, but Foxglove prefers East-North-Up
+    """
+    return Point3(
+        x=float(y),
+        y=float(x),
+        z=float(-z),
+    )
+
+
+class TrajectoryCodec(ProtobufCodec):
+    """Codec that encodes the flight's trajectory.
+
+    Without this, the 3D view is just a single vector that moves around,
+    which gives basically zero meaningful information.  This emits the entire trajectory
+    as a single SceneUpdate with appropriate ENU coordinates for better rendering.
+    We timestamp it to the log start time, so we can seek through it from the start,
+    and give it a lifetime of 0 so it persists until it's overwritten.
+    """
+
+    _ENTITY_ID = "trajectory"
+    _LINE_THICKNESS = 2.0
+    # Foxglove uses RGBA color
+    _LINE_COLOR = Color(
+        r=1.0,
+        g=0.55,
+        b=0.0,
+        a=1.0
+    )
+
+    def __init__(self):
+        schema = SceneUpdate.get_schema()
+        self._schema_name = schema.name
+        self._schema_bytes = schema.data
+
+    @property
+    def schema_name(self) -> str:
+        return self._schema_name
+
+    @property
+    def schema_bytes(self) -> bytes:
+        return self._schema_bytes
+
+    def encode(self, payload: dict) -> bytes:
+        lines = [
+            LinePrimitive(
+                type=LinePrimitiveLineType.LineStrip,
+                pose=Pose(
+                    position=Vector3(x=0.0, y=0.0, z=0.0),
+                    orientation=Quaternion(x=0.0, y=0.0, z=0.0, w=1.0),
+                ),
+                thickness = self._LINE_THICKNESS,
+                scale_invariant=True,
+                points=payload["points"],
+                color=self._LINE_COLOR,
+                colors=[],
+            )
+        ]
+        scene_entity = SceneEntity(
+            timestamp=Timestamp(**payload["timestamp"]),
+            frame_id="local_origin",
+            id=self._ENTITY_ID,
+            lifetime=Duration(sec=0, nsec=0),
+            lines=lines,
+        )
+        return SceneUpdate(
+            entities=[scene_entity],
+            deletions=[],
         ).encode()

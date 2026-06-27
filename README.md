@@ -64,6 +64,15 @@ files we start to care about, rather than now needing to write a `.bag` -> Icebe
 pipeline, it's easy to convert from `.bag` to `.mcap` and then feed those converted files
 into the existing pipeline.
 
+Relatedly, you might be wondering "Why do this conversion manually, rather than using CLI tools?
+Great question!  You can indeed use the `pyulog` CLI to convert from ULog -> ROS2 bag files, and then
+use the `mcap` CLI to convert from bag files to mcap.  It would have definitely been less work,
+but I didn't do it for a couple reasons:
+1. One of the points of this was to build a working knowledge of what goes into an MCAP
+2. It lets us reformat some data before writing it to the mcap.  For instance, we construct a
+   foxglove-compatible trajectory path to show the entire flight path visually.
+
+
 **Why Iceberg?**
 
 Iceberg is definitely overkill for this demo pipeline's "ingest 25 ulogs" pattern,

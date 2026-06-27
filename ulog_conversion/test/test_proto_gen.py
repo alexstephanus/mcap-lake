@@ -126,9 +126,12 @@ def test_aggregate_drops_numeric_array_inside_struct(caplog):
 
 def test_descriptor_package_syntax_and_name():
     fd = build_file_descriptor("vehicle_status_0", [("a", "uint8_t")])
+    expected_fd_name = \
+        f"{_PACKAGE.replace('.', '/')}/vehicle_status_0.proto" if _PACKAGE \
+        else "vehicle_status_0.proto"
     assert fd.package == _PACKAGE
     assert fd.syntax == "proto3"
-    assert fd.name == f"{_PACKAGE.replace('.', '/')}/vehicle_status_0.proto"
+    assert fd.name == expected_fd_name
     assert len(fd.message_type) == 1
     assert fd.message_type[0].name == "vehicle_status_0"
 
@@ -228,7 +231,8 @@ def test_descriptor_sanitizes_dots_in_char_array_base_names():
 
 def test_topic_codec_schema_name_includes_package():
     codec = TopicCodec("vehicle_status_0", [("timestamp", "uint64_t")])
-    assert codec.schema_name == f"{_PACKAGE}.vehicle_status_0"
+    expected_schema_name = f"{_PACKAGE}.vehicle_status_0" if _PACKAGE else "vehicle_status_0"
+    assert codec.schema_name == expected_schema_name
 
 
 def test_topic_codec_schema_bytes_round_trips_through_descriptor_set():
@@ -458,7 +462,8 @@ def test_log_codec_encode_omits_optional_file_and_line():
 # ---------- ParameterChangedCodec ----------
 
 def test_parameter_changed_codec_schema_name():
-    assert ParameterChangedCodec().schema_name == f"{_PACKAGE}.ParameterChanged"
+    expected_schema_name = f"{_PACKAGE}.ParameterChanged" if _PACKAGE else "ParameterChanged"
+    assert ParameterChangedCodec().schema_name == expected_schema_name
 
 
 def test_parameter_changed_codec_schema_bytes_carries_oneof():
