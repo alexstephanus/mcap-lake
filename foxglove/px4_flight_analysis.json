@@ -1,0 +1,338 @@
+{
+  "configById": {
+    "3D!dv80q": {
+      "cameraState": {
+        "perspective": true,
+        "distance": 98.08401423950937,
+        "phi": 54.41854735284048,
+        "thetaOffset": 87.62790697027934,
+        "targetOffset": [
+          27.66147497111785,
+          13.312244790062426,
+          -8.544900784344384e-16
+        ],
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "fovy": 45,
+        "near": 0.5,
+        "far": 5000,
+        "logDepth": false
+      },
+      "followMode": "follow-pose",
+      "scene": {
+        "meshUpAxis": "y_up",
+        "labelScaleFactor": 5,
+        "enableStats": false
+      },
+      "transforms": {
+        "frame:base_link": {
+          "visible": false
+        },
+        "frame:base_intermediate": {
+          "visible": false
+        },
+        "frame:local_origin": {
+          "visible": false
+        }
+      },
+      "topics": {
+        "vehicle_local_position_0": {
+          "axisScale": 5,
+          "visible": true
+        },
+        "vehicle_trajectory_foxglove": {
+          "color": "#f28f33ff",
+          "selectedIdVariable": "",
+          "showOutlines": true,
+          "visible": true
+        }
+      },
+      "layers": {
+        "grid": {
+          "visible": true,
+          "drawBehind": true,
+          "instanceId": "31d5bf34-d6cb-475b-899b-bc7cc76cc0f0",
+          "layerId": "foxglove.Grid",
+          "size": 10,
+          "divisions": 10,
+          "lineWidth": 1,
+          "color": "#248eff",
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ]
+        }
+      },
+      "publish": {
+        "type": "point",
+        "poseTopic": "/move_base_simple/goal",
+        "pointTopic": "/clicked_point",
+        "poseEstimateTopic": "/initialpose",
+        "poseEstimateXDeviation": 0.5,
+        "poseEstimateYDeviation": 0.5,
+        "poseEstimateThetaDeviation": 0.26179939
+      },
+      "synchronize": false,
+      "imageMode": {},
+      "followTf": "local_origin",
+      "foxglovePanelTitle": "3D View"
+    },
+    "RosOut!18s3gz4": {
+      "minLogLevel": 1,
+      "preload": true,
+      "searchTerms": [],
+      "nameFilter": {},
+      "fontSize": 12,
+      "showLevel": true,
+      "showDate": true,
+      "showTime": true,
+      "showTimezone": true,
+      "showName": true,
+      "showSourceLocation": false
+    },
+    "Plot!2okjfi9": {
+      "yAxisLabel": "Y",
+      "xAxisLabel": "X",
+      "paths": [
+        {
+          "timestampMethod": "receiveTime",
+          "value": "vehicle_local_position_0.y",
+          "enabled": true,
+          "color": "#4e98e2",
+          "id": "114fcb2e-8326-464c-a150-d6997191e780",
+          "xValuePath": "vehicle_local_position_0.x"
+        }
+      ],
+      "xAxisVal": "custom",
+      "axisScalesMode": "lockedScales",
+      "xAxisPath": {
+        "value": "vehicle_local_position_0.x"
+      },
+      "foxglovePanelTitle": "X-Y Position (m)",
+      "showLegend": false
+    },
+    "Plot!20171cc": {
+      "paths": [
+        {
+          "timestampMethod": "receiveTime",
+          "value": "vehicle_local_position_0.vz.@mul(-1)",
+          "enabled": true,
+          "color": "#242cb3",
+          "id": "cb00a296-0387-4527-a4be-def3cc904da3",
+          "label": "z"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "vehicle_local_position_0.y",
+          "enabled": true,
+          "color": "#00f804",
+          "id": "6f18d4f4-08da-4e33-8f50-f40d1cb4fc02",
+          "label": "y"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "vehicle_local_position_0.vx",
+          "enabled": true,
+          "color": "#fe3f00",
+          "id": "e48e86f2-bab0-498a-bc67-6d13a42586db",
+          "label": "x"
+        }
+      ],
+      "foxglovePanelTitle": "Directional Velocity (m/s)",
+      "showLegend": true,
+      "legendDisplay": "floating"
+    },
+    "Plot!27ntofm": {
+      "paths": [
+        {
+          "timestampMethod": "receiveTime",
+          "value": "estimator_local_position_0.z.@mul(-1)",
+          "enabled": true,
+          "color": "#4e98e2",
+          "id": "a21a056f-34b1-4b3b-854c-cdb06188aae9",
+          "label": "z"
+        }
+      ],
+      "minYValue": -1,
+      "foxglovePanelTitle": "Z Position (m)",
+      "showLegend": false,
+      "yAxisLabel": "Z"
+    },
+    "Plot!2ptmiv5": {
+      "paths": [
+        {
+          "timestampMethod": "receiveTime",
+          "value": "battery_status_0.voltage_v",
+          "enabled": true,
+          "color": "#4e98e2",
+          "id": "b2a75e9b-c929-4ae3-bfa6-40481f18e4ca",
+          "label": "Voltage (V)"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "battery_status_0.remaining",
+          "enabled": true,
+          "color": "#9a7233",
+          "yAxisId": "7e3fa37c-6f26-407d-8805-9daf6fc4c80d",
+          "id": "745c3bfa-b13e-4756-98e7-b8cddc915780",
+          "label": "Remaining (0 - 1)"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "battery_status_0.cell_count.@mul(3.3)",
+          "enabled": true,
+          "color": "#fc3232",
+          "id": "011f31ae-c76d-4b22-bd7e-b3c661684098",
+          "label": "Low Voltage (3.3V/cell)"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "battery_status_0.current_a",
+          "enabled": false,
+          "color": "#d54ed9",
+          "id": "a45d8b99-aa72-4df6-a248-32c921e2d332",
+          "label": "Current (A)"
+        }
+      ],
+      "secondaryAxes": [
+        {
+          "id": "7e3fa37c-6f26-407d-8805-9daf6fc4c80d"
+        }
+      ],
+      "showLegend": true,
+      "foxglovePanelTitle": "Battery Voltage & Capacity"
+    },
+    "StateTransitions!238in0s": {
+      "paths": [
+        {
+          "value": "vehicle_status_0.nav_state",
+          "timestampMethod": "receiveTime",
+          "customStates": {
+            "type": "discrete",
+            "states": [
+              {
+                "value": "0",
+                "label": "MANUAL",
+                "color": "#346aa6"
+              },
+              {
+                "value": "1",
+                "label": "ALTCTL",
+                "color": "#6187e6"
+              },
+              {
+                "value": "2",
+                "label": "POSCTL",
+                "color": "#e5b257"
+              },
+              {
+                "value": "3",
+                "label": "AUTO_MISSION",
+                "color": "#42d57d"
+              },
+              {
+                "value": "4",
+                "label": "AUTO_LOITER",
+                "color": "#8d8d8d"
+              },
+              {
+                "value": "5",
+                "label": "AUTO_RTL",
+                "color": "#f55dbf"
+              }
+            ]
+          },
+          "label": "Nav State"
+        },
+        {
+          "value": "vehicle_status_0.arming_state",
+          "timestampMethod": "receiveTime",
+          "customStates": {
+            "type": "discrete",
+            "states": [
+              {
+                "value": "1",
+                "label": "Disarmed",
+                "color": "#a3a3a3"
+              },
+              {
+                "value": "2",
+                "label": "Armed",
+                "color": "#42d57d"
+              }
+            ]
+          },
+          "label": "Arming State"
+        },
+        {
+          "value": "vehicle_status_0.failsafe",
+          "timestampMethod": "receiveTime",
+          "customStates": {
+            "type": "discrete",
+            "states": [
+              {
+                "value": "False",
+                "label": "False",
+                "color": "#a3a3a3"
+              },
+              {
+                "value": "True",
+                "label": "True"
+              }
+            ]
+          },
+          "label": "Failsafe Triggered"
+        }
+      ],
+      "isSynced": true,
+      "xAxisDisplayMethod": "relative",
+      "xAxisLabel": "Time"
+    }
+  },
+  "globalVariables": {},
+  "userNodes": {},
+  "playbackConfig": {
+    "speed": 1
+  },
+  "layout": {
+    "direction": "row",
+    "first": {
+      "first": "3D!dv80q",
+      "second": "RosOut!18s3gz4",
+      "direction": "column"
+    },
+    "second": {
+      "first": {
+        "first": "Plot!2okjfi9",
+        "second": "Plot!20171cc",
+        "direction": "column"
+      },
+      "second": {
+        "first": {
+          "first": "Plot!27ntofm",
+          "second": "StateTransitions!238in0s",
+          "direction": "column"
+        },
+        "second": "Plot!2ptmiv5",
+        "direction": "column"
+      },
+      "direction": "row"
+    },
+    "splitPercentage": 47.05532305110871
+  }
+}

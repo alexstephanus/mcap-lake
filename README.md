@@ -4,6 +4,7 @@ This project takes a batch of PX4 drone autopilot ULog files (`.ulg`),
 converts them to MCAP, and ingests those mcaps into an Iceberg
 data warehouse for easy querying across multiple flights.
 
+
 ```sql
 SELECT * FROM curated.flights LIMIT 5;
 ┌─────────────────────────────────────────────────┬─────────────┬───────────────────────────────┬──────────┬────────────────┬─────────────┐
@@ -18,13 +19,16 @@ SELECT * FROM curated.flights LIMIT 5;
 └─────────────────────────────────────────────────┴─────────────┴───────────────────────────────┴──────────┴────────────────┴─────────────┘
 ```
 
+![Flight Analysis Dashboard](./foxglove/dashboard_screenshot.png)
+
 ## Requirements
 
-[Docker](https://docs.docker.com/get-started/get-docker/) is required
+- **Docker:** [Docker](https://docs.docker.com/get-started/get-docker/) is required
 to coordinate all the local infrastructure.
-Additionally, this project uses [just](https://github.com/casey/just) as a command runner.
+- **Just:** This project uses [just](https://github.com/casey/just) as a command runner.
 If you don't want to install `just` (even though it's awesome), the recipes are
 plain shell commands and you can copy-paste them from the `justfile` straight into your terminal.
+- **Foxglove:** To view the Foxglove dashboard, you need a free Foxglove account, either desktop or webapp work.
 
 ## Running the pipeline
 
@@ -38,6 +42,7 @@ This runs the following commands in sequence:
 1. `just download-logs` downloads 25 ULogs from the publicly-available PX4 flight database
 2. `just batch` runs the `.ulg` -> `.mcap` conversion and the `.mcap` -> Iceberg ingestion
 3. `just query` drops you into an interactive DuckDB session pointed at the ingested mcap data
+4. To view a specific MCAP using the foxglove dashboard, instructions are in 
 
 ## Architecture
 The `.ulg` -> `.mcap` conversion step is written in Python due to the convenience that `pyulog` offers for interacting with ULog files.
@@ -64,6 +69,15 @@ files we start to care about, rather than now needing to write a `.bag` -> Icebe
 pipeline, it's easy to convert from `.bag` to `.mcap` and then feed those converted files
 into the existing pipeline.
 
+Relatedly, you might be wondering "Why do this conversion manually, rather than using CLI tools?"
+Great question!  You can indeed use the `pyulog` CLI to convert from ULog -> ROS2 bag files, and then
+use the `mcap` CLI to convert from bag files to mcap.  It would have definitely been less work,
+but I didn't do it for a couple reasons:
+1. One of the points of this was to build a working knowledge of what goes into an MCAP
+2. It lets us reformat some data before writing it to the mcap.  For instance, we construct a
+   foxglove-compatible trajectory path to show the entire flight path visually.
+
+
 **Why Iceberg?**
 
 Iceberg is definitely overkill for this demo pipeline's "ingest 25 ulogs" pattern,
@@ -85,7 +99,7 @@ Iceberg's primary downsides are:
    flexibility and lower overall cost can certainly justify the increased operational complexity,
    although it's still a trade-off you should make with eyes wide open.
 
-Most of these operational problems simply don't emerge for a demo pipeline.
+Telemetry data should generally be write-once, and most of these operational problems simply don't emerge for a demo pipeline.  Hence, Iceberg.
 
 
 ## Structure, Roadmap, & Limitations
@@ -93,6 +107,7 @@ Each section has its own, more-specific README:
 ```
 mcap-lake/
 ├── data/                 # Download script and raw ulogs
+├── foxglove/             # Foxglove dashboard export and documentation
 ├── mcap_ingest/          # Ingestion of mcap files into iceberg
 ├── ulog_conversion/      # Conversion of ulog files into mcaps
 └── warehouse/            # Init scripts and dockerfile for DuckDB

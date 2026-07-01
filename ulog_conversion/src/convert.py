@@ -1,4 +1,5 @@
 import heapq
+import math
 import os
 import tempfile
 import time
@@ -10,10 +11,12 @@ from mcap.writer import CompressionType, Writer
 from pyulog import core, ULog
 
 from proto_gen import (
+    ned_to_enu,
     LogCodec,
     ParameterChangedCodec,
     ProtobufCodec,
     TopicCodec,
+    TrajectoryCodec,
 )
 from storage import ObjectStore
 
@@ -21,6 +24,7 @@ _CHUNK_SIZE = 4 * 1024 * 1024  # 4 MB
 _COMPRESSION_TYPE = CompressionType.ZSTD
 _LOGS_TOPIC_NAME = "logged_messages"
 _PARAMETER_CHANGES_TOPIC_NAME = "parameter_changes"
+_TRAJECTORY_TOPIC_NAME = "vehicle_trajectory_foxglove"
 _BYTES_PER_MB = 1024 * 1024
 
 
@@ -161,6 +165,50 @@ def stream_parameter_changes(ulog: ULog) -> Iterator[tuple[str, int, dict[str, A
         yield (_PARAMETER_CHANGES_TOPIC_NAME, ts, payload)
 
 
+def stream_trajectory(ulog: ULog) -> Iterator[tuple[str, int, dict[str, Any]]]:
+    """Yield a single SceneUpdate carrying the whole flight track as one polyline.
+
+    Reads vehicle_local_position (instance 0), collates all position points into
+    a single Point3 list, and passes that list to the TrajectoryCodec.
+    If vehicle_local_position is missing (which it shouldn't be for the firmware version
+    that our Foxglove dashboard actually cares about), we simply skip
+    """
+    try:
+        local_position = ulog.get_dataset("vehicle_local_position", multi_instance=0)
+    except (KeyError, IndexError, ValueError):
+        return
+
+    timestamps = local_position.data["timestamp"]
+    xs = local_position.data["x"]
+    ys = local_position.data["y"]
+    zs = local_position.data["z"]
+
+    points = []
+    first_ts: int | None = None
+    for i in range(len(timestamps)):
+        x, y, z = float(xs[i]), float(ys[i]), float(zs[i])
+        if math.isnan(x) or math.isnan(y) or math.isnan(z):
+            continue
+        point = ned_to_enu(x, y, z)
+        if point is None:
+            continue
+        points.append(point)
+        if first_ts is None:
+            first_ts = int(timestamps[i])
+
+    if not points or first_ts is None:
+        return
+
+    yield (
+        _TRAJECTORY_TOPIC_NAME,
+        first_ts,
+        {
+            "points": points,
+            "timestamp": _micros_to_foxglove_time(first_ts),
+        },
+    )
+
+
 def _register_channel(writer: Writer, topic_name: str, codec: ProtobufCodec) -> McapChannel:
     schema_id = writer.register_schema(
         name=codec.schema_name,
@@ -182,11 +230,9 @@ def convert_ulog_to_mcap(input_path: str, output_path: str):
 
     ulog = ULog(input_path)
 
-    # ver_sw is the PX4 firmware git hash (the same field the downloader filters on with
-    # --git-hash); ver_hw is the board. Surface them per file so the conversion logs record
-    # which firmware produced each ulog.
+    # ver_sw is the PX4 firmware git hash (the same field the downloader filters on with --git-hash)
     info = ulog.msg_info_dict
-    print(f"Firmware:     ver_sw={info.get('ver_sw', 'unknown')} hw={info.get('ver_hw', 'unknown')}")
+    print(f"Firmware version: {info.get('ver_sw', 'unknown')}")
 
     with open(output_path, "wb") as fp:
         mcap_writer = Writer(
@@ -238,7 +284,7 @@ def convert_ulog_to_mcap(input_path: str, output_path: str):
         channels[_LOGS_TOPIC_NAME] = _register_channel(
             mcap_writer,
             _LOGS_TOPIC_NAME,
-            LogCodec()
+            LogCodec(),
         )
 
         channels[_PARAMETER_CHANGES_TOPIC_NAME] = _register_channel(
@@ -247,11 +293,18 @@ def convert_ulog_to_mcap(input_path: str, output_path: str):
             ParameterChangedCodec(),
         )
 
+        channels[_TRAJECTORY_TOPIC_NAME] = _register_channel(
+            mcap_writer,
+            _TRAJECTORY_TOPIC_NAME,
+            TrajectoryCodec(),
+        )
+
         stitched_message_stream = heapq.merge(
             *[stream_topic_records(topic, map_topic_name(topic)) for topic in ulog.data_list],
             stream_logged_messages(ulog),
             stream_logged_messages_tagged(ulog),
             stream_parameter_changes(ulog),
+            stream_trajectory(ulog),
             key=lambda message: message[1],
         )
 
